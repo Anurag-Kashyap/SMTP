@@ -8,9 +8,14 @@ client = Client(sid, token)
 
 # this is the Twilio sandbox testing number
 from_whatsapp_number='whatsapp:+14155238886'
-# replace this number with your own WhatsApp Messaging number
-to_whatsapp_number='whatsapp:+919864547715'
 
-client.messages.create(body='Ahoy, world!',
-                       from_=from_whatsapp_number,
-                       to=to_whatsapp_number)
+# replace this number with your own WhatsApp Messaging number
+numbers=['whatsapp:+919632830620']
+
+for to_whatsapp_number in numbers:
+    try:
+        client.messages.create(body='Hi!',
+                               from_=from_whatsapp_number,
+                               to=to_whatsapp_number)
+    except Exception as err:
+        print(err)

@@ -57,29 +57,32 @@ DataWithSenderList = pd.merge(df_checker, receivers, how='left', left_on = 'Key'
 
 
 
-##------------- Sending the mails  ------------------##
+##------------- Sending the trigger alerts  ------------------##
 
 
 if DataWithSenderList.empty:
     print('All sales figure are withing the range for the week: ' + latestWeek)
 else:
-    
+
+#####------- E-mail --------#####
+
     mailList = list(DataWithSenderList['Mail id'].unique())
+    numList = list(DataWithSenderList['Whatsapp'].unique())
     today = date.today()
-    
+
     # exchange Sign In
     exchange_sender = df.loc[0,'sender']
     exchange_passwd = df.loc[0,'password_s']
-        
+
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.ehlo()
     server.starttls()
     server.login(exchange_sender, exchange_passwd)
-    
+
     for receiver in mailList:
         TO = receiver
         SUBJECT = 'Sales Trigger for ' + str(today)
-        
+
         TEXT = ''
         DataToSend = DataWithSenderList[DataWithSenderList['Mail id']==receiver]
         DataToSend = DataToSend.reset_index(drop=True)
@@ -89,16 +92,54 @@ else:
             else:
                 TEXT = TEXT + 'Last week sales dollar value is $' + '%.2f'%DataToSend.loc[i, 'Sum of Sales'] + ' for '+str(DataToSend.loc[i,'Key']) + ' which falls below from Lower Threshold Level of $'+'%.2f'%DataToSend.loc[i,'LCLmean-sigma1'] + ' \r\r\n'
         print(TEXT)
-        
+
         BODY = '\r\n'.join(['To: %s' % TO,
                             'From: %s' % exchange_sender,
                             'Subject: %s' % SUBJECT,
                             '', TEXT])
-        
+
         try:
             server.sendmail(exchange_sender, receiver, BODY)
             print ('email sent to ' + receiver)
         except:
             print ('error sending mail to '+receiver)
-        
+
     server.quit()
+
+
+#####-------    WhatsApp   -----------######
+
+    from twilio.rest import Client
+
+    sid = 'AC48c43ecfc570aa44b4428201a6d00fe7'
+    token = '6de83d5c5aac9343871e6748a6405a51'
+
+    # client credentials are read from TWILIO_ACCOUNT_SID and AUTH_TOKEN
+    client = Client(sid, token)
+
+    # this is the Twilio sandbox testing number
+    from_whatsapp_number='whatsapp:+14155238886'
+
+    for receiver in numList:
+        SUBJECT = 'Sales Trigger for ' + str(today)
+
+        TEXT = SUBJECT + '\r\r\n\r\r\n\r\r\n'
+        DataToSend = DataWithSenderList[DataWithSenderList['Whatsapp']==receiver]
+        DataToSend = DataToSend.reset_index(drop=True)
+        for i in range(len(DataToSend)):
+            if DataToSend.loc[i,'UCL_check']==0:
+                TEXT = TEXT + 'Last week sales dollar value is $' + '%.2f'%DataToSend.loc[i, 'Sum of Sales'] + ' for '+str(DataToSend.loc[i,'Key']) + ' which exceeds from Upper Threshold Level of $'+'%.2f'%DataToSend.loc[i,'UCLmean+sigma1'] + ' \r\r\n\r\r\n'
+            else:
+                TEXT = TEXT + 'Last week sales dollar value is $' + '%.2f'%DataToSend.loc[i, 'Sum of Sales'] + ' for '+str(DataToSend.loc[i,'Key']) + ' which falls below from Lower Threshold Level of $'+'%.2f'%DataToSend.loc[i,'LCLmean-sigma1'] + ' \r\r\n\r\r\n'
+        # print(TEXT)
+
+        try:
+            client.messages.create(
+                body=TEXT,
+                from_=from_whatsapp_number,
+                to=receiver
+                )
+            print ('WhatsApp text sent to ' + receiver)
+        except Exception as err:
+            print ('error sending text to ' + receiver)
+            print(err)
